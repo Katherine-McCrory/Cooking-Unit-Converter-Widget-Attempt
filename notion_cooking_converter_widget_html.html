@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cooking Converter</title>
+  <style>
+    :root {
+      --bg: #0f172a; /* slate-900 */
+      --card: #111827; /* gray-900 */
+      --muted: #94a3b8; /* slate-400 */
+      --text: #e5e7eb; /* gray-200 */
+      --ring: #60a5fa; /* blue-400 */
+      --accent: #22d3ee; /* cyan-400 */
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background: radial-gradient(1200px 800px at 10% 0%, #0b1227 0%, #0a1325 30%, var(--bg) 70%);
+      display: grid; place-items: center; padding: 24px;
+    }
+    .wrap { width: 100%; max-width: 880px; }
+    .title { font-size: clamp(20px, 2.5vw, 28px); font-weight: 700; letter-spacing: .2px; margin: 0 0 12px; }
+    .subtitle { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+
+    .card {
+      background: linear-gradient(180deg, #0b1325 0%, var(--card) 60%);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 18px; padding: 20px; box-shadow: 0 12px 30px rgba(0,0,0,.35);
+    }
+
+    .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media (min-width: 720px) { .grid { grid-template-columns: 1.2fr 1fr 1fr; } }
+
+    label { font-size: 12px; color: var(--muted); display:block; margin: 0 0 6px; }
+
+    input[type="text"], select {
+      width: 100%; padding: 12px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.08);
+      background: rgba(2,6,23,.6); color: var(--text); outline: none; font-size: 16px;
+      transition: border-color .15s, box-shadow .15s, transform .06s;
+    }
+    input[type="text"]:focus, select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px rgba(96,165,250,.25); }
+
+    .controls { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: end; }
+    .btn {
+      appearance: none; border: 1px solid rgba(255,255,255,.1); background: rgba(2,6,23,.7);
+      color: var(--text); padding: 10px 12px; border-radius: 12px; cursor: pointer; font-weight: 600;
+      transition: transform .06s ease, background .12s ease, border-color .12s ease;
+    }
+    .btn:hover { background: rgba(255,255,255,.06); }
+    .btn:active { transform: translateY(1px); }
+
+    .swap { display: inline-flex; align-items: center; gap: 8px; }
+    .swap svg { width: 18px; height: 18px; fill: currentColor; opacity: .9; }
+
+    .result {
+      margin-top: 16px; padding: 16px; border-radius: 14px; background: rgba(2,6,23,.55);
+      border: 1px solid rgba(255,255,255,.06);
+      display: grid; gap: 10px;
+    }
+    .result-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .result .value { font-size: clamp(22px, 3vw, 28px); font-weight: 800; letter-spacing: .2px; }
+    .mono { font-variant-numeric: tabular-nums; }
+
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .row { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media (min-width: 720px) { .row { grid-template-columns: 1fr 1fr; } }
+
+    .tiny { font-size: 12px; color: var(--muted); }
+    .right { text-align: right; }
+
+    .copy { border-color: rgba(34,211,238,.25); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">Cooking Converter</h1>
+    <p class="subtitle">Convert common kitchen measurements between US Standard and Metric. Type amounts like <strong>1 1/2</strong>, <strong>3/4</strong>, or even <strong>½</strong>.</p>
+
+    <div class="card">
+      <div class="grid" role="group" aria-label="converter">
+        <div>
+          <label for="amount">Amount</label>
+          <input id="amount" type="text" inputmode="decimal" placeholder="e.g., 1 1/2 or 0.75" aria-label="Amount" />
+        </div>
+        <div>
+          <label for="fromUnit">From</label>
+          <select id="fromUnit" aria-label="From unit"></select>
+        </div>
+        <div>
+          <label for="toUnit">To</label>
+          <select id="toUnit" aria-label="To unit"></select>
+        </div>
+      </div>
+
+      <div class="controls" style="margin-top:14px;">
+        <div class="tiny" id="categoryLabel">Category: Volume</div>
+        <button class="btn swap" id="swapBtn" aria-label="Swap units" title="Swap units">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11l-2.5-2.5 1.4-1.4L22.8 7l-5.9 3.9-1.4-1.4L18 7H7V5zM17 17H6l2.5 2.5-1.4 1.4L1.2 17l5.9-3.9 1.4 1.4L6 17h11v2z"/></svg>
+          Swap
+        </button>
+        <div class="right tiny">
+          <label><input type="checkbox" id="fractionOut"> Prefer fractions for US units</label>
+        </div>
+      </div>
+
+      <div class="result" id="resultBox" aria-live="polite">
+        <div class="result-row">
+          <div class="value mono" id="resultValue">—</div>
+          <button class="btn copy" id="copyBtn" title="Copy result">Copy</button>
+        </div>
+        <div class="muted" id="notes">Enter an amount to see the conversion.</div>
+      </div>
+
+      <div class="row" style="margin-top:14px;">
+        <div class="tiny">
+          <strong>Includes:</strong> tsp, tbsp, fl oz, cup, pint, quart, gallon, mL, cL, L · oz, lb, g, kg · °F ↔ °C
+        </div>
+        <div class="tiny right">
+          Rounding is kitchen‑friendly. Numbers are approximate.
+        </div>
+      </div>
+    </div>
+    <p class="tiny" style="margin-top:10px;">Tip: Paste this file into any static host (e.g., GitHub Pages/Netlify) and embed its URL in Notion.</p>
+  </div>
+
+  <script>
+    // ---- Unit definitions ----
+    const CATS = {
+      volume: 'Volume',
+      weight: 'Weight',
+      temperature: 'Temperature'
+    };
+
+    // base units: mL for volume, g for weight. Temperature handled with functions.
+    const UNITS = {
+      volume: [
+        { k: 'tsp', label: 'teaspoon (tsp)', toBase: v => v * 5, fromBase: v => v / 5 },
+        { k: 'tbsp', label: 'tablespoon (tbsp)', toBase: v => v * 15, fromBase: v => v / 15 },
+        { k: 'floz', label: 'fluid ounce (US fl oz)', toBase: v => v * 29.5735295625, fromBase: v => v / 29.5735295625 },
+        { k: 'cup', label: 'cup (US, 240 mL)', toBase: v => v * 240, fromBase: v => v / 240 },
+        { k: 'pt', label: 'pint (US)', toBase: v => v * 473.176473, fromBase: v => v / 473.176473 },
+        { k: 'qt', label: 'quart (US)', toBase: v => v * 946.352946, fromBase: v => v / 946.352946 },
+        { k: 'gal', label: 'gallon (US)', toBase: v => v * 3785.411784, fromBase: v => v / 3785.411784 },
+        { k: 'ml', label: 'milliliter (mL)', toBase: v => v, fromBase: v => v },
+        { k: 'cl', label: 'centiliter (cL)', toBase: v => v * 10, fromBase: v => v / 10 },
+        { k: 'l', label: 'liter (L)', toBase: v => v * 1000, fromBase: v => v / 1000 },
+      ],
+      weight: [
+        { k: 'oz', label: 'ounce (oz)', toBase: v => v * 28.349523125, fromBase: v => v / 28.349523125 },
+        { k: 'lb', label: 'pound (lb)', toBase: v => v * 453.59237, fromBase: v => v / 453.59237 },
+        { k: 'g', label: 'gram (g)', toBase: v => v, fromBase: v => v },
+        { k: 'kg', label: 'kilogram (kg)', toBase: v => v * 1000, fromBase: v => v / 1000 },
+      ],
+      temperature: [
+        { k: 'C', label: 'Celsius (°C)', toOther: (v, to) => to === 'F' ? (v * 9/5) + 32 : v },
+        { k: 'F', label: 'Fahrenheit (°F)', toOther: (v, to) => to === 'C' ? (v - 32) * 5/9 : v },
+      ]
+    };
+
+    const UNIT_META = Object.fromEntries([
+      ...UNITS.volume.map(u => [u.k, { cat: 'volume', ...u }]),
+      ...UNITS.weight.map(u => [u.k, { cat: 'weight', ...u }]),
+      ...UNITS.temperature.map(u => [u.k, { cat: 'temperature', ...u }]),
+    ]);
+
+    // ---- Elements ----
+    const amountEl = document.getElementById('amount');
+    const fromEl = document.getElementById('fromUnit');
+    const toEl = document.getElementById('toUnit');
+    const swapBtn = document.getElementById('swapBtn');
+    const resultValue = document.getElementById('resultValue');
+    const notes = document.getElementById('notes');
+    const copyBtn = document.getElementById('copyBtn');
+    const categoryLabel = document.getElementById('categoryLabel');
+    const fractionOut = document.getElementById('fractionOut');
+
+    // ---- Populate selects ----
+    function opt(label, value) { const o = document.createElement('option'); o.textContent = label; o.value = value; return o; }
+
+    function populateSelects(defaultFrom = 'cup', defaultTo = 'ml') {
+      [fromEl, toEl].forEach(sel => sel.innerHTML = '');
+      // By default, show all units grouped by category
+      const groups = [
+        { label: 'Volume', items: UNITS.volume },
+        { label: 'Weight', items: UNITS.weight },
+        { label: 'Temperature', items: UNITS.temperature },
+      ];
+      for (const g of groups) {
+        const og1 = document.createElement('optgroup');
+        og1.label = g.label;
+        const og2 = document.createElement('optgroup');
+        og2.label = g.label;
+        g.items.forEach(u => { og1.appendChild(opt(u.label, u.k)); og2.appendChild(opt(u.label, u.k)); });
+        fromEl.appendChild(og1); toEl.appendChild(og2);
+      }
+      fromEl.value = defaultFrom; toEl.value = defaultTo;
+      syncCategory();
+    }
+
+    function syncCategory() {
+      const f = UNIT_META[fromEl.value];
+      const t = UNIT_META[toEl.value];
+      if (!f || !t) return;
+      // If categories differ and it's not temperature, align target to same category
+      if (f.cat !== t.cat) {
+        const list = UNITS[f.cat];
+        toEl.value = list[0].k; // pick first in category
+      }
+      categoryLabel.textContent = `Category: ${CATS[f.cat]}`;
+    }
+
+    // ---- Parsing helpers ----
+    const VULGAR = {
+      '¼': 1/4, '½': 1/2, '¾': 3/4,
+      '⅐': 1/7, '⅑': 1/9, '⅒': 1/10,
+      '⅓': 1/3, '⅔': 2/3,
+      '⅕': 1/5, '⅖': 2/5, '⅗': 3/5, '⅘': 4/5,
+      '⅙': 1/6, '⅚': 5/6,
+      '⅛': 1/8, '⅜': 3/8, '⅝': 5/8, '⅞': 7/8,
+    };
+
+    function parseAmount(raw) {
+      if (!raw) return NaN;
+      let s = String(raw).trim();
+      // Replace vulgar fractions with plain fractions
+      for (const [ch, val] of Object.entries(VULGAR)) {
+        if (s.includes(ch)) s = s.replaceAll(ch, ` ${val}`); // space ensures mixed numbers like "1½"
+      }
+      // Allow formats: "1 1/2", "3/4", "2.5"
+      // Split on whitespace to handle mixed numbers
+      const parts = s.split(/\s+/).filter(Boolean);
+      let total = 0;
+      for (const p of parts) {
+        if (/^[-+]?\d+(?:[\.,]\d+)?$/.test(p)) {
+          total += parseFloat(p.replace(',', '.'));
+        } else if (/^[-+]?\d+\s*\/\s*\d+$/.test(p)) {
+          const [a, b] = p.split('/').map(n => parseFloat(n));
+          if (b !== 0) total += a / b;
+        } else {
+          // Try as decimal with fraction suffix like 1.5/2 (ignore)
+          const num = Number(p);
+          if (!Number.isNaN(num)) total += num; else return NaN;
+        }
+      }
+      return total;
+    }
+
+    // Round nicely for kitchen values
+    function roundSmart(v) {
+      if (!isFinite(v)) return v;
+      const abs = Math.abs(v);
+      let dp = 2;
+      if (abs < 1) dp = 3;
+      if (abs >= 100) dp = 1;
+      if (abs >= 1000) dp = 0;
+      return Number(v.toFixed(dp));
+    }
+
+    function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a; }
+
+    // Format as common kitchen fraction to nearest 1/8 (or 1/16 for small numbers)
+    function toKitchenFraction(v) {
+      const whole = Math.trunc(v);
+      const frac = Math.abs(v - whole);
+      const denom = frac < 0.125 ? 0 : (frac < 0.25 ? 8 : 16); // finer for mid-range
+      let text;
+      if (denom === 0) {
+        text = String(whole);
+      } else {
+        let n = Math.round(frac * denom);
+        if (n === denom) { // carry over
+          return String(whole + (v >= 0 ? 1 : -1));
+        }
+        const g = gcd(n, denom);
+        n /= g; const d = denom / g;
+        text = whole ? `${whole} ${n}/${d}` : `${n}/${d}`;
+      }
+      return v < 0 ? '-' + text : text;
+    }
+
+    function isUSUnit(u) { return ['tsp','tbsp','floz','cup','pt','qt','gal','oz','lb','F'].includes(u); }
+
+    // ---- Conversion ----
+    function convert(value, from, to) {
+      const f = UNIT_META[from];
+      const t = UNIT_META[to];
+      if (!f || !t) return { ok:false, msg:'Unknown unit' };
+      if (f.cat !== t.cat) {
+        if (f.cat === 'temperature' && t.cat === 'temperature') {
+          // handled below
+        } else {
+          return { ok:false, msg:'Units are from different categories' };
+        }
+      }
+      if (f.cat === 'temperature') {
+        if (from === to) return { ok:true, value };
+        // find function on the source unit
+        const src = UNITS.temperature.find(u => u.k === from);
+        return { ok:true, value: src.toOther(value, to) };
+      }
+      // scalar conversion through base
+      const vInBase = f.toBase(value);
+      const out = UNIT_META[to].fromBase(vInBase);
+      return { ok:true, value: out };
+    }
+
+    function formatResult(v, u) {
+      if (!isFinite(v)) return '—';
+      let txt;
+      if (fractionOut.checked && isUSUnit(u) && UNIT_META[u].cat !== 'temperature') {
+        txt = `${toKitchenFraction(v)} ${UNIT_META[u].label.match(/^[^(]+/)[0].trim()}`;
+      } else {
+        txt = `${roundSmart(v)} ${UNIT_META[u].label.match(/^[^(]+/)[0].trim()}`;
+      }
+      return txt;
+    }
+
+    function update() {
+      const raw = amountEl.value;
+      const amt = parseAmount(raw);
+      const from = fromEl.value; const to = toEl.value;
+      syncCategory();
+      if (!raw) { resultValue.textContent = '—'; notes.textContent = 'Enter an amount to see the conversion.'; return; }
+      if (Number.isNaN(amt)) { resultValue.textContent = '—'; notes.textContent = 'Couldn\'t parse that amount. Try formats like 1 1/2, 3/4, or 0.75.'; return; }
+      const { ok, value, msg } = convert(amt, from, to);
+      if (!ok) { resultValue.textContent = '—'; notes.textContent = msg; return; }
+
+      resultValue.textContent = formatResult(value, to);
+
+      // Secondary helpful hint for metric volume to L/mL presentation
+      if (UNIT_META[to].cat === 'volume') {
+        const ml = UNIT_META['ml'].fromBase(UNIT_META[to].toBase ? UNIT_META[to].toBase(value) : (value * 1));
+        if (ml >= 1000) {
+          notes.textContent = `${roundSmart(ml/1000)} L  •  ${roundSmart(ml)} mL`;
+        } else {
+          notes.textContent = `${roundSmart(ml)} mL`;
+        }
+      } else if (UNIT_META[to].cat === 'weight') {
+        const g = UNIT_META['g'].fromBase(UNIT_META[to].toBase ? UNIT_META[to].toBase(value) : (value * 1));
+        if (g >= 1000) {
+          notes.textContent = `${roundSmart(g/1000)} kg  •  ${roundSmart(g)} g`;
+        } else {
+          notes.textContent = `${roundSmart(g)} g`;
+        }
+      } else {
+        notes.textContent = UNIT_META[to].label;
+      }
+    }
+
+    // ---- Events ----
+    amountEl.addEventListener('input', update);
+    fromEl.addEventListener('change', () => { syncCategory(); update(); });
+    toEl.addEventListener('change', update);
+    fractionOut.addEventListener('change', update);
+
+    swapBtn.addEventListener('click', () => {
+      const f = fromEl.value; const t = toEl.value;
+      if (UNIT_META[f].cat !== UNIT_META[t].cat) return; // prevent swapping across categories
+      fromEl.value = t; toEl.value = f; update();
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      const txt = resultValue.textContent;
+      try { await navigator.clipboard.writeText(txt); copyBtn.textContent = 'Copied'; setTimeout(()=> copyBtn.textContent='Copy', 1000); } catch(e) { copyBtn.textContent = 'Select & Copy'; setTimeout(()=> copyBtn.textContent='Copy', 1000); }
+    });
+
+    // Init
+    populateSelects('cup', 'ml');
+    update();
+  </script>
+</body>
+</html>
