@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cooking Unit Converter</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{
+    margin:0;padding:0;
+    font:16px system-ui,Segoe UI,Roboto,Arial;
+    background:#0f172a;color:#e5e7eb;
+    text-align:center;
+  }
+  .wrap{width:100%;max-width:560px;margin:8px auto;padding:0 8px}
+  .subtitle{margin:6px 0 10px;color:#94a3b8;font-size:16px}
+  .card{background:linear-gradient(180deg,#0b1325 0,#111827 60%);
+    border:1px solid rgba(255,255,255,.06);border-radius:18px;
+    box-shadow:0 4px 10px rgba(0,0,0,.35);padding:16px;width:100%}
+  .grid{display:grid;gap:12px;grid-template-columns:1fr}
+  @media(min-width:600px){.grid{grid-template-columns:1fr 1fr 1fr}}
+  label{font-size:12px;color:#94a3b8;display:block;margin:0 0 4px;text-align:left}
+  input,select,button{font:inherit;color:#e5e7eb;background:rgba(2,6,23,.6);
+    border:1px solid rgba(255,255,255,.08);outline:0;border-radius:12px;
+    padding:10px;width:100%;text-align:center}
+  input:focus,select:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,.25)}
+  .controls{text-align:center;margin-top:12px}
+  .btn{cursor:pointer;font-weight:700;padding:10px 14px;max-width:120px;margin:auto;display:inline-block}
+  .result{margin-top:14px;padding:14px;border-radius:14px;background:rgba(2,6,23,.55);border:1px solid rgba(255,255,255,.06)}
+  .muted{color:#94a3b8;font-size:12px}
+  .mono{font-variant-numeric:tabular-nums}
+</style>
+<body>
+  <div class="wrap">
+    <p class="subtitle">Convert common kitchen measurements between US Standard and Metric.</p>
+    <div class="card">
+      <div class="grid" role="group" aria-label="converter">
+        <div>
+          <label for="amount">Amount</label>
+          <input id="amount" type="text" inputmode="decimal" placeholder="e.g. 1 1/2 or 0.75" aria-label="Amount">
+        </div>
+        <div>
+          <label for="fromUnit">From</label>
+          <select id="fromUnit" aria-label="From unit"></select>
+        </div>
+        <div>
+          <label for="toUnit">To</label>
+          <select id="toUnit" aria-label="To unit"></select>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="swapBtn" aria-label="Swap units" title="Swap units">Swap</button>
+      </div>
+
+      <div class="result" id="resultBox" aria-live="polite">
+        <div class="mono" id="resultValue" style="font-size:clamp(22px,3vw,28px);font-weight:800">—</div>
+        <div class="muted" id="notes">Enter an amount to see the conversion.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const CATS={volume:'Volume',weight:'Weight',temperature:'Temperature'};
+
+  const UNITS={
+    volume:[
+      {k:'tsp',label:'teaspoon (tsp)',toBase:v=>v*5,fromBase:v=>v/5},
+      {k:'tbsp',label:'tablespoon (tbsp)',toBase:v=>v*15,fromBase:v=>v/15},
+      {k:'floz',label:'fluid ounce (US fl oz)',toBase:v=>v*29.5735295625,fromBase:v=>v/29.5735295625},
+      {k:'cup',label:'cup (US, 240 mL)',toBase:v=>v*240,fromBase:v=>v/240},
+      {k:'pt',label:'pint (US)',toBase:v=>v*473.176473,fromBase:v=>v/473.176473},
+      {k:'qt',label:'quart (US)',toBase:v=>v*946.352946,fromBase:v=>v/946.352946},
+      {k:'gal',label:'gallon (US)',toBase:v=>v*3785.411784,fromBase:v=>v/3785.411784},
+      {k:'ml',label:'milliliter (mL)',toBase:v=>v,fromBase:v=>v},
+      {k:'cl',label:'centiliter (cL)',toBase:v=>v*10,fromBase:v=>v/10},
+      {k:'l',label:'liter (L)',toBase:v=>v*1000,fromBase:v=>v/1000},
+    ],
+    weight:[
+      {k:'oz',label:'ounce (oz)',toBase:v=>v*28.349523125,fromBase:v=>v/28.349523125},
+      {k:'lb',label:'pound (lb)',toBase:v=>v*453.59237,fromBase:v=>v/453.59237},
+      {k:'g',label:'gram (g)',toBase:v=>v,fromBase:v=>v},
+      {k:'kg',label:'kilogram (kg)',toBase:v=>v*1000,fromBase:v=>v/1000},
+    ],
+    temperature:[
+      {k:'C',label:'Celsius (°C)',toOther:(v,to)=>to==='F'?(v*9/5)+32:v},
+      {k:'F',label:'Fahrenheit (°F)',toOther:(v,to)=>to==='C'?(v-32)*5/9:v},
+    ]
+  };
+
+  const UNIT_META=Object.fromEntries([
+    ...UNITS.volume.map(u=>[u.k,{cat:'volume',...u}]),
+    ...UNITS.weight.map(u=>[u.k,{cat:'weight',...u}]),
+    ...UNITS.temperature.map(u=>[u.k,{cat:'temperature',...u}]),
+  ]);
+
+  const amountEl=document.getElementById('amount');
+  const fromEl=document.getElementById('fromUnit');
+  const toEl=document.getElementById('toUnit');
+  const swapBtn=document.getElementById('swapBtn');
+  const resultValue=document.getElementById('resultValue');
+  const notes=document.getElementById('notes');
+
+  function opt(label,value){const o=document.createElement('option');o.textContent=label;o.value=value;return o;}
+  function populateSelects(defFrom='cup',defTo='ml'){
+    [fromEl,toEl].forEach(sel=>sel.innerHTML='');
+    const groups=[{label:'Volume',items:UNITS.volume},{label:'Weight',items:UNITS.weight},{label:'Temperature',items:UNITS.temperature}];
+    for(const g of groups){
+      const og1=document.createElement('optgroup');og1.label=g.label;
+      const og2=document.createElement('optgroup');og2.label=g.label;
+      g.items.forEach(u=>{og1.appendChild(opt(u.label,u.k));og2.appendChild(opt(u.label,u.k));});
+      fromEl.appendChild(og1);toEl.appendChild(og2);
+    }
+    fromEl.value=defFrom;toEl.value=defTo;
+  }
+
+  const VULGAR={'¼':1/4,'½':1/2,'¾':3/4,'⅓':1/3,'⅔':2/3,'⅕':1/5,'⅖':2/5,'⅗':3/5,'⅘':4/5,'⅙':1/6,'⅚':5/6,'⅛':1/8,'⅜':3/8,'⅝':5/8,'⅞':7/8};
+  function parseAmount(raw){
+    if(!raw)return NaN;let s=String(raw).trim();
+    for(const[ch,val]of Object.entries(VULGAR))if(s.includes(ch))s=s.replaceAll(ch,' '+val);
+    const parts=s.split(/\s+/).filter(Boolean);let total=0;
+    for(const p of parts){
+      if(/^[-+]?\d+(?:[\.,]\d+)?$/.test(p))total+=parseFloat(p.replace(',','.'));
+      else if(/^[-+]?\d+\s*\/\s*\d+$/.test(p)){const[a,b]=p.split('/').map(Number);if(b)total+=a/b;}
+      else{const n=Number(p);if(!Number.isNaN(n))total+=n;else return NaN;}
+    }return total;
+  }
+
+  function roundSmart(v){if(!isFinite(v))return v;const abs=Math.abs(v);
+    let dp=2;if(abs<1)dp=3;if(abs>=100)dp=1;if(abs>=1000)dp=0;return Number(v.toFixed(dp));}
+
+  function convert(value,from,to){
+    const f=UNIT_META[from],t=UNIT_META[to];if(!f||!t)return{ok:false,msg:'Unknown unit'};
+    if(f.cat!==t.cat){if(f.cat==='temperature'&&t.cat==='temperature'){}else return{ok:false,msg:'Units are from different categories'};}
+    if(f.cat==='temperature'){if(from===to)return{ok:true,value};const src=UNITS.temperature.find(u=>u.k===from);return{ok:true,value:src.toOther(value,to)};}
+    const vBase=f.toBase(value);const out=UNIT_META[to].fromBase(vBase);return{ok:true,value:out};
+  }
+
+  function update(){
+    const raw=amountEl.value;const amt=parseAmount(raw);const from=fromEl.value;const to=toEl.value;
+    if(!raw){resultValue.textContent='—';notes.textContent='Enter an amount to see the conversion.';return;}
+    if(Number.isNaN(amt)){resultValue.textContent='—';notes.textContent='Try formats like 1 1/2, 3/4, or 0.75.';return;}
+    const {ok,value,msg}=convert(amt,from,to);if(!ok){resultValue.textContent='—';notes.textContent=msg;return;}
+    const label=UNIT_META[to].label.match(/^[^(]+/)[0].trim();
+    resultValue.textContent=`${roundSmart(value)} ${label}`;
+    if(UNIT_META[to].cat==='volume'){const ml=UNIT_META['ml'].fromBase(UNIT_META[to].toBase?UNIT_META[to].toBase(value):(value*1));notes.textContent=ml>=1000?`${roundSmart(ml/1000)} L  •  ${roundSmart(ml)} mL`:`${roundSmart(ml)} mL`;}
+    else if(UNIT_META[to].cat==='weight'){const g=UNIT_META['g'].fromBase(UNIT_META[to].toBase?UNIT_META[to].toBase(value):(value*1));notes.textContent=g>=1000?`${roundSmart(g/1000)} kg  •  ${roundSmart(g)} g`:`${roundSmart(g)} g`;}
+    else{notes.textContent=UNIT_META[to].label;}
+  }
+
+  amountEl.addEventListener('input',update);
+  fromEl.addEventListener('change',update);
+  toEl.addEventListener('change',update);
+  swapBtn.addEventListener('click',()=>{const f=fromEl.value,t=toEl.value;if(UNIT_META[f].cat!==UNIT_META[t].cat)return;fromEl.value=t;toEl.value=f;update();});
+
+  populateSelects('cup','ml');update();
+</script>
+</body>
+</html>
